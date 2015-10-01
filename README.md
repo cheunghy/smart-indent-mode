@@ -1,0 +1,1 @@
+Emacs smart indent mode
