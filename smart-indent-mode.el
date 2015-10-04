@@ -52,9 +52,8 @@ when disable `smart-indent-mode'.")
   (interactive "p\nP")
   (smart-indent-backspace (- n) kill-flag))
 
-(defun smart-indent-tab (n)
+(defun smart-indent-tab ()
   "Smart indent tab."
-  (interactive "p")
   (if (<= (current-column) (current-indentation))
       (insert (make-string (* n smart-indent-offset) ? ))
     (save-excursion
