@@ -52,13 +52,33 @@ when disable `smart-indent-mode'.")
   (interactive "p\nP")
   (smart-indent-backspace (- n) kill-flag))
 
-(defun smart-indent-tab ()
-  "Smart indent tab."
-  (if (<= (current-column) (current-indentation))
-      (insert (make-string (* n smart-indent-offset) ? ))
+(defun smart-indent-return ()
+  "Smart indent return."
+  (interactive)
+  (let ((cur-indent (current-indentation)))
+    (newline)
+    (indent-to cur-indent)))
+
+(defun smart-indent-indent-to-align ()
+  "Smart indent return."
+  (let (curind)
     (save-excursion
-      (beginning-of-line 1)
-      (insert (make-string (* n smart-indent-offset) ? )))))
+      (forward-line -1)
+      (setq curind (current-indentation)))
+    (indent-to curind)))
+
+(defun smart-indent-indent-line ()
+  "Smart indent tab."
+  (if (-contains? '('newline 'newline-and-indent) last-command)
+      (smart-indent-indent-to-align)
+    (if (<= (current-column) (current-indentation))
+        (insert (make-string smart-indent-offset ? ))
+      (save-excursion
+        (beginning-of-line 1)
+        (insert (make-string smart-indent-offset ? ))))))
+
+(defun smart-indent-indent-region (start end &optional quiet)
+  )
 
 (defun smart-indent-shift-right (n)
   "Shift right by N."
@@ -121,6 +141,7 @@ when disable `smart-indent-mode'.")
 ;;;###autoload
 (defvar smart-indent-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map [return] 'smart-indent-return)
     (define-key map [backspace] 'smart-indent-backspace)
     (define-key map (kbd "C-d") 'smart-indent-delete-char)
     (define-key map (kbd "s-[") 'smart-indent-shift-left)
@@ -136,9 +157,10 @@ when disable `smart-indent-mode'.")
       (progn
         (setq smart-indent-saved-indent-region-function indent-region-function)
         (setq smart-indent-saved-indent-line-function indent-line-function)
-        (set (make-local-variable 'indent-line-function) 'smart-indent-tab)
-        (set (make-local-variable 'indent-region-function) 'smart-indent-tab)
-        )
+        (set (make-local-variable 'indent-line-function)
+             'smart-indent-indent-line)
+        (set (make-local-variable 'indent-region-function)
+             'smart-indent-indent-region))
     (setq indent-region-function smart-indent-saved-indent-region-function)
     (setq indent-line-function smart-indent-saved-indent-line-function)))
 
