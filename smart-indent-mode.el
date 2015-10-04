@@ -53,9 +53,11 @@
 (defun smart-indent-tab (n)
   "Smart indent tab."
   (interactive "p")
-  (save-excursion
-    (beginning-of-line 1)
-    (insert (make-string (* n smart-indent-offset) ? ))))
+  (if (<= (current-column) (current-indentation))
+      (insert (make-string (* n smart-indent-offset) ? ))
+    (save-excursion
+      (beginning-of-line 1)
+      (insert (make-string (* n smart-indent-offset) ? )))))
 
 (defun smart-indent-shift-right (n)
   "Shift right by N."
