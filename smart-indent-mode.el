@@ -50,6 +50,11 @@
           (delete-char (- smart-indent-offset)))
       (delete-char (- n) kill-flag))))
 
+(defun smart-indent-delete-char (n &optional kill-flag)
+  "Smart indent delete char."
+  (interactive "p\nP")
+  (smart-indent-backspace (- n) kill-flag))
+
 (defun smart-indent-tab (n)
   "Smart indent tab."
   (interactive "p")
@@ -124,6 +129,7 @@
     (define-key map [s-return] 'smart-indent-ignore-and-return)
     (define-key map [return] 'smart-indent-return)
     (define-key map [tab] 'smart-indent-tab)
+    (define-key map (kbd "C-d") 'smart-indent-delete-char)
     (define-key map (kbd "s-[") 'smart-indent-shift-left)
     (define-key map (kbd "s-]") 'smart-indent-shift-right)
     map))
