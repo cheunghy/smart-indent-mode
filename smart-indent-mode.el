@@ -115,19 +115,62 @@ if N is negative, shift left."
                            cur-indentation (* n smart-indent-offset))
                         (line-beginning-position))))))
 
+(defun smart-indent-fake-deactivate-region (&optional force)
+  "You know."
+  (when (or transient-mark-mode force)
+    (when (and (if (eq select-active-regions 'only)
+                   (eq (car-safe transient-mark-mode) 'only)
+                 select-active-regions)
+               (region-active-p)
+               (display-selections-p))
+      ;; The var `saved-region-selection', if non-nil, is the text in
+      ;; the region prior to the last command modifying the buffer.
+      ;; Set the selection to that, or to the current region.
+      (cond (saved-region-selection
+             (if (x-selection-owner-p 'PRIMARY)
+                 (x-set-selection 'PRIMARY saved-region-selection))
+             (setq saved-region-selection nil))
+            ;; If another program has acquired the selection, region
+            ;; deactivation should not clobber it (Bug#11772).
+            ((and (/= (region-beginning) (region-end))
+                  (or (x-selection-owner-p 'PRIMARY)
+                      (null (x-selection-exists-p 'PRIMARY))))
+             (x-set-selection 'PRIMARY
+                              (funcall region-extract-function nil)))))
+    (when mark-active (force-mode-line-update)) ;Refresh toolbar (bug#16382).
+    (cond
+     ((eq (car-safe transient-mark-mode) 'only)
+      (setq transient-mark-mode (cdr transient-mark-mode))))
+    (run-hooks 'deactivate-mark-hook)
+    (redisplay--update-region-highlight (selected-window))))
+
+(defmacro smart-indent-alter-function (func func2 &rest body)
+  "Alter FUNC's implementation with FUNC2 temporarily. And eveluate BODY."
+  (declare (debug t) (indent 2))
+  `(let ((imp (symbol-function ,func)))
+     (unwind-protect
+         (progn
+           (fset ,func (symbol-function ,func2))
+           ,@body)
+       (fset ,func imp))))
+
 (defun smart-indent-shift-region (n)
   "Shift region by N * `smart-indent-offset', if N is positive, shift right,
 if N is negative, shift left."
   (unless (use-region-p) (error "Region is not active!"))
-  (let ((pt (copy-marker (point-marker)))
-        (mk (copy-marker (mark-marker))))
-    (if (> pt mk)
-        (exchange-point-and-mark))
-    (while (< (point) (mark))
-      (smart-indent-shift-line n)
-      (forward-line))
-    (push-mark mk nil t)
-    (goto-char pt)))
+  (smart-indent-alter-function
+      'deactivate-mark
+      'smart-indent-fake-deactivate-region
+    (let ((pt (copy-marker (point-marker)))
+          (mk (copy-marker (mark-marker))))
+      (if (> pt mk)
+          (exchange-point-and-mark))
+      (while (< (point) (mark))
+        (smart-indent-shift-line n)
+        (forward-line))
+      (push-mark (marker-position mk) nil t)
+      (activate-mark)
+      (goto-char (marker-position pt)))))
 
 ;;;###autoload
 (defvar smart-indent-mode-map
