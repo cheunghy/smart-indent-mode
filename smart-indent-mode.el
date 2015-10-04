@@ -27,18 +27,15 @@
 (defvar-local smart-indent-offset 2
   "The indentation used by `smart-indent-mode'.")
 
-(defun smart-indent-return ()
-  "Smart indent return."
-  (interactive)
-  (let ((cur-indent (current-indentation)))
-    (newline)
-    (indent-to cur-indent)))
+(defvar-local smart-indent-saved-indent-line-function nil
+  "The saved `indent-line-function' value.
+It will save when enable `smart-indent-mode' and restore
+when disable `smart-indent-mode'.")
 
-(defun smart-indent-ignore-and-return ()
-  "Smart indent ignore and return."
-  (interactive)
-  (end-of-line 1)
-  (smart-indent-return))
+(defvar-local smart-indent-saved-indent-region-function nil
+  "The saved `indent-region-function' value.
+It will save when enable `smart-indent-mode' and restore
+when disable `smart-indent-mode'.")
 
 (defun smart-indent-backspace (n &optional kill-flag)
   "Smart indent backspace."
@@ -126,9 +123,6 @@
 (defvar smart-indent-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map [backspace] 'smart-indent-backspace)
-    (define-key map [s-return] 'smart-indent-ignore-and-return)
-    (define-key map [return] 'smart-indent-return)
-    (define-key map [tab] 'smart-indent-tab)
     (define-key map (kbd "C-d") 'smart-indent-delete-char)
     (define-key map (kbd "s-[") 'smart-indent-shift-left)
     (define-key map (kbd "s-]") 'smart-indent-shift-right)
@@ -138,7 +132,16 @@
 (define-minor-mode smart-indent-mode
   "Mode for easy expand line when expand line is activated."
   :lighter " SI"
-  :keymap smart-indent-mode-map)
+  :keymap smart-indent-mode-map
+  (if smart-indent-mode
+      (progn
+        (setq smart-indent-saved-indent-region-function indent-region-function)
+        (setq smart-indent-saved-indent-line-function indent-line-function)
+        (setq indent-line-function 'smart-indent-tab)
+        (setq indent-region-function 'smart-indent-tab)
+        )
+    (setq indent-region-function smart-indent-saved-indent-region-function)
+    (setq indent-line-function smart-indent-saved-indent-line-function)))
 
 (provide 'smart-indent-mode)
 ;;; smart-indent-mode.el ends here
