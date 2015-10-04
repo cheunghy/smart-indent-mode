@@ -43,14 +43,17 @@ when disable `smart-indent-mode'.")
   (if (use-region-p)
       (delete-active-region)
     (if (<= 1 (current-column) (current-indentation))
-        (progn
-          (delete-char (- smart-indent-offset)))
+        (delete-char (- smart-indent-offset))
       (delete-char (- n) kill-flag))))
 
 (defun smart-indent-delete-char (n &optional kill-flag)
   "Smart indent delete char."
   (interactive "p\nP")
-  (smart-indent-backspace (- n) kill-flag))
+  (if (use-region-p)
+      (delete-active-region)
+    (if (and (<= 0 (current-column)) (< (current-column) (current-indentation)))
+        (delete-char smart-indent-offset)
+      (delete-char n kill-flag))))
 
 (defun smart-indent-return ()
   "Smart indent return."
@@ -81,62 +84,50 @@ when disable `smart-indent-mode'.")
   )
 
 (defun smart-indent-shift-right (n)
-  "Shift right by N."
+  "Shift region or line right by N."
   (interactive "p")
   (if (use-region-p)
-      (smart-indent-shift-right-region n)
-    (smart-indent-shift-right-line n)))
-
-(defun smart-indent-shift-right-line (n)
-  "Shift right by N."
-  (save-excursion
-    (smart-indent-shift-right-line-interval n)))
-
-(defun smart-indent-shift-right-line-interval (n)
-  "Shift right by N."
-  (beginning-of-line 1)
-  (dotimes (i (* n smart-indent-offset))
-    (insert " ")))
-
-(defun smart-indent-shift-right-region (n)
-  "Shift right by N."
-  (let ((deactivate-mark nil)
-        (rbegin (region-beginning))
-        (rend (1- (region-end))))
-    (save-excursion
-      (goto-char rbegin)
-      (while (< (point) rend)
-        (smart-indent-shift-right-line-interval n)
-        (forward-line)))))
+      (smart-indent-shift-region n)
+    (smart-indent-shift-line n)))
 
 (defun smart-indent-shift-left (n)
-  "Shift left by N."
+  "Shift region or line left by N."
   (interactive "p")
   (if (use-region-p)
-      (smart-indent-shift-left-region n)
-    (smart-indent-shift-left-line n)))
+      (smart-indent-shift-region (- n))
+    (smart-indent-shift-line (- n))))
 
-(defun smart-indent-shift-left-line (n)
-  "Shift left by N."
-  (save-excursion
-    (smart-indent-shift-left-line-interval n)))
+(defun smart-indent-shift-line (n)
+  "Shift line by N * `smart-indent-offset', if N is positive, shift right,
+if N is negative, shift left."
+  (let ((inside-indentation (<= (current-column) (current-indentation)))
+        (cur-indentation (current-column)))
+    (save-excursion
+      (cond
+       ((< n 0)
+        (indent-line-to
+         (max (- (current-indentation) (* (- n) smart-indent-offset)) 0)))
+       ((> n 0)
+        (indent-line-to (+ (current-indentation) (* n smart-indent-offset))))))
+    ;; Fix save-excursion won't work if cursor inside indentation
+    (if inside-indentation
+        (goto-char (max (+ (line-beginning-position)
+                           cur-indentation (* n smart-indent-offset))
+                        (line-beginning-position))))))
 
-(defun smart-indent-shift-left-line-interval (n)
-  (beginning-of-line 1)
-  (dotimes (i (* n smart-indent-offset))
-    (when (= (char-after) ? )
-      (delete-char 1))))
-
-(defun smart-indent-shift-left-region (n)
-  "Shift left by N."
-  (save-excursion
-    (let ((deactivate-mark nil)
-          (rbegin (region-beginning))
-          (rend (1- (region-end))))
-      (goto-char rbegin)
-      (while (< (point) rend)
-        (smart-indent-shift-left-line-interval n)
-        (forward-line)))))
+(defun smart-indent-shift-region (n)
+  "Shift region by N * `smart-indent-offset', if N is positive, shift right,
+if N is negative, shift left."
+  (unless (use-region-p) (error "Region is not active!"))
+  (let ((pt (copy-marker (point-marker)))
+        (mk (copy-marker (mark-marker))))
+    (if (> pt mk)
+        (exchange-point-and-mark))
+    (while (< (point) (mark))
+      (smart-indent-shift-line n)
+      (forward-line))
+    (push-mark mk nil t)
+    (goto-char pt)))
 
 ;;;###autoload
 (defvar smart-indent-mode-map
